@@ -8,7 +8,7 @@ const app = express()
 const PORT = process.env.PORT || 3001
 
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+  origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
   credentials: true,
 }))
 
@@ -29,8 +29,9 @@ app.get('/', (_req, res) => {
   })
 })
 
-const server = app.listen(PORT, () => {
-  console.log(`🚀 FunPost Automation Server running on port ${PORT}`)
+const HOST = '0.0.0.0'
+const server = app.listen(Number(PORT), HOST, () => {
+  console.log(`🚀 FunPost Automation Server running on ${HOST}:${PORT}`)
   console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`)
 })
 

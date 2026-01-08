@@ -20,10 +20,47 @@ export async function loginTistory(
     await page.goto(TISTORY_LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 15000 })
     console.log('[Tistory] Login page loaded')
 
-    const kakaoButton = page.locator('a[href*="kakao"], .btn_login.link_kakao_id, [class*="kakao"]').first()
-    await kakaoButton.waitFor({ timeout: 10000 })
-    await kakaoButton.click()
-    console.log('[Tistory] Clicked Kakao login button')
+    const kakaoSelectors = [
+      '.link_kakao_id',
+      '.btn_login.link_kakao_id', 
+      'a.link_kakao_id',
+      '.login_wrap a[href*="kakao"]',
+      '.btn_kakao',
+      'a[class*="kakao"]:not([href="#kakaoBody"])',
+    ]
+    
+    let clicked = false
+    for (const selector of kakaoSelectors) {
+      try {
+        const btn = page.locator(selector).first()
+        if (await btn.isVisible({ timeout: 2000 })) {
+          await btn.click()
+          clicked = true
+          console.log('[Tistory] Clicked Kakao button with selector:', selector)
+          break
+        }
+      } catch {
+        continue
+      }
+    }
+    
+    if (!clicked) {
+      const allLinks = await page.locator('a').all()
+      for (const link of allLinks) {
+        const text = await link.textContent().catch(() => '')
+        const className = await link.getAttribute('class').catch(() => '')
+        if ((text?.includes('카카오') || className?.includes('kakao')) && !text?.includes('바로가기')) {
+          await link.click()
+          clicked = true
+          console.log('[Tistory] Clicked Kakao button by text/class search')
+          break
+        }
+      }
+    }
+    
+    if (!clicked) {
+      throw new Error('Could not find Kakao login button')
+    }
 
     await page.waitForURL('**/accounts.kakao.com/**', { timeout: 15000 })
     console.log('[Tistory] Kakao login page loaded')

@@ -69,28 +69,26 @@ export async function loginTistory(
 
     await page.waitForTimeout(2000)
     
-    const loginIdInput = page.locator('input[name="loginId"], input[id*="loginId"], input[placeholder*="이메일"], input[placeholder*="아이디"]').first()
+    const loginIdInput = page.locator('#loginId--1, input[name="loginId"]').first()
     await loginIdInput.waitFor({ timeout: 10000 })
     await loginIdInput.click()
-    await loginIdInput.fill('')
-    await loginIdInput.type(username, { delay: 50 })
-    console.log('[Tistory] Entered username:', username)
+    await loginIdInput.pressSequentially(username, { delay: 100 })
+    console.log('[Tistory] Entered username')
 
-    const passwordInput = page.locator('input[name="password"], input[id*="password"], input[type="password"]').first()
-    await passwordInput.waitFor({ timeout: 5000 })
+    await page.waitForTimeout(300)
+
+    const passwordInput = page.locator('#password--2, input[name="password"]').first()
     await passwordInput.click()
-    await passwordInput.fill('')
-    await passwordInput.type(password, { delay: 50 })
+    await passwordInput.pressSequentially(password, { delay: 100 })
     console.log('[Tistory] Entered password')
 
     await page.waitForTimeout(500)
 
-    const submitButton = page.locator('button[type="submit"], button.btn_g.highlight, button.submit, button:has-text("로그인")').first()
-    await submitButton.waitFor({ timeout: 5000 })
+    const submitButton = page.locator('button.submit, button.btn_g.highlight.submit').first()
     await submitButton.click()
     console.log('[Tistory] Clicked submit button')
     
-    await page.waitForTimeout(3000)
+    await page.waitForTimeout(5000)
 
     await Promise.race([
       page.waitForURL('**/tistory.com/**', { timeout: 30000 }),

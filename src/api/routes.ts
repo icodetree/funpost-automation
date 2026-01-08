@@ -18,6 +18,10 @@ import type { ApiResponse, PostResult, SessionStatus } from '../types/index.js'
 
 export const router = Router()
 
+router.get('/health', (_req: Request, res: Response): void => {
+  res.json({ success: true, data: { status: 'healthy', timestamp: new Date().toISOString() } })
+})
+
 function verifyApiKey(req: Request, res: Response, next: () => void): void {
   const apiKey = req.headers['x-api-key']
   const expectedKey = process.env.API_SECRET_KEY
@@ -152,8 +156,4 @@ router.post('/post', async (req: Request, res: Response): Promise<void> => {
       error: error instanceof Error ? error.message : 'Internal server error'
     })
   }
-})
-
-router.get('/health', (_req: Request, res: Response): void => {
-  res.json({ success: true, data: { status: 'healthy', timestamp: new Date().toISOString() } })
 })

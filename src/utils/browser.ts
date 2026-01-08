@@ -35,9 +35,15 @@ export async function createContext(cookies?: string): Promise<BrowserContext> {
   if (cookies) {
     try {
       const parsedCookies = JSON.parse(cookies)
-      await context.addCookies(parsedCookies)
+      if (Array.isArray(parsedCookies) && parsedCookies.length > 0) {
+        await context.addCookies(parsedCookies)
+      } else {
+        throw new Error('Cookies must be a non-empty array')
+      }
     } catch (e) {
       console.error('Failed to parse cookies:', e)
+      console.error('Cookie data preview:', cookies.substring(0, 100))
+      throw new Error('세션이 손상되었습니다. 플랫폼에 다시 로그인해주세요.')
     }
   }
 

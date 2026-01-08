@@ -1,8 +1,10 @@
 import { Router, Request, Response } from 'express'
+import { z } from 'zod'
 import { 
   PostRequestSchema, 
   LoginRequestSchema, 
-  SessionCheckRequestSchema 
+  SessionCheckRequestSchema,
+  PlatformType
 } from '../types/index.js'
 import { 
   loginTistory, 
@@ -14,7 +16,14 @@ import {
   checkNaverSession, 
   createNaverPost 
 } from '../platforms/naver/index.js'
+import { saveManualCookies } from '../utils/cookie-manager.js'
 import type { ApiResponse, PostResult, SessionStatus } from '../types/index.js'
+
+const SaveCookiesSchema = z.object({
+  userId: z.string().uuid(),
+  platform: PlatformType,
+  cookies: z.string().min(1),
+})
 
 export const router = Router()
 
@@ -151,6 +160,34 @@ router.post('/post', async (req: Request, res: Response): Promise<void> => {
     res.json(response)
   } catch (error) {
     console.error('Post error:', error)
+    res.status(500).json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Internal server error'
+    })
+  }
+})
+
+router.post('/cookies/save', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const parsed = SaveCookiesSchema.safeParse(req.body)
+    if (!parsed.success) {
+      res.status(400).json({ 
+        success: false, 
+        error: parsed.error.errors.map(e => e.message).join(', ')
+      })
+      return
+    }
+
+    const { userId, platform, cookies } = parsed.data
+
+    await saveManualCookies(userId, platform, cookies)
+
+    res.json({ 
+      success: true, 
+      data: { message: 'Cookies saved successfully' } 
+    })
+  } catch (error) {
+    console.error('Save cookies error:', error)
     res.status(500).json({ 
       success: false, 
       error: error instanceof Error ? error.message : 'Internal server error'

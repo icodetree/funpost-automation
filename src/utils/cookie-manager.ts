@@ -80,3 +80,31 @@ export async function hasValidSession(
   const cookies = await loadCookies(userId, platform)
   return cookies !== null
 }
+
+export async function saveManualCookies(
+  userId: string,
+  platform: PlatformType,
+  cookiesJson: string
+): Promise<void> {
+  const supabase = getSupabase()
+
+  const expiresAt = new Date()
+  expiresAt.setDate(expiresAt.getDate() + COOKIE_EXPIRY_DAYS)
+
+  const { error } = await supabase
+    .from('platform_sessions')
+    .upsert({
+      user_id: userId,
+      platform,
+      cookies: cookiesJson,
+      expires_at: expiresAt.toISOString(),
+      updated_at: new Date().toISOString(),
+    }, {
+      onConflict: 'user_id,platform',
+    })
+
+  if (error) {
+    console.error('Failed to save manual cookies:', error)
+    throw new Error('Failed to save session')
+  }
+}

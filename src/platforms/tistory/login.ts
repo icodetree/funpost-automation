@@ -67,21 +67,30 @@ export async function loginTistory(
 
     await page.waitForTimeout(1000)
 
-    const loginIdInput = page.locator('input[name="loginId"], input[id="loginId--1"], input[type="email"]').first()
-    await loginIdInput.waitFor({ timeout: 5000 })
+    await page.waitForTimeout(2000)
+    
+    const loginIdInput = page.locator('input[name="loginId"], input[id*="loginId"], input[placeholder*="이메일"], input[placeholder*="아이디"]').first()
+    await loginIdInput.waitFor({ timeout: 10000 })
     await loginIdInput.click()
-    await loginIdInput.fill(username)
-    console.log('[Tistory] Entered username')
+    await loginIdInput.fill('')
+    await loginIdInput.type(username, { delay: 50 })
+    console.log('[Tistory] Entered username:', username)
 
-    const passwordInput = page.locator('input[name="password"], input[id="password--2"], input[type="password"]').first()
+    const passwordInput = page.locator('input[name="password"], input[id*="password"], input[type="password"]').first()
     await passwordInput.waitFor({ timeout: 5000 })
     await passwordInput.click()
-    await passwordInput.fill(password)
+    await passwordInput.fill('')
+    await passwordInput.type(password, { delay: 50 })
     console.log('[Tistory] Entered password')
 
-    const submitButton = page.locator('button[type="submit"], .btn_g.highlight, button[class*="submit"]').first()
+    await page.waitForTimeout(500)
+
+    const submitButton = page.locator('button[type="submit"], button.btn_g.highlight, button.submit, button:has-text("로그인")').first()
+    await submitButton.waitFor({ timeout: 5000 })
     await submitButton.click()
     console.log('[Tistory] Clicked submit button')
+    
+    await page.waitForTimeout(3000)
 
     await Promise.race([
       page.waitForURL('**/tistory.com/**', { timeout: 30000 }),
@@ -92,8 +101,14 @@ export async function loginTistory(
     console.log('[Tistory] Current URL after login:', currentUrl)
 
     if (currentUrl.includes('accounts.kakao.com')) {
-      const errorMsg = await page.locator('.txt_error, .error_message, [class*="error"]').textContent().catch(() => null)
-      console.error('[Tistory] Login failed, still on Kakao:', errorMsg)
+      const errorSelectors = ['.txt_error', '.error_message', '[class*="error"]', '.info_error', '#error-message']
+      let errorMsg = null
+      for (const sel of errorSelectors) {
+        errorMsg = await page.locator(sel).textContent().catch(() => null)
+        if (errorMsg) break
+      }
+      console.error('[Tistory] Login failed, still on Kakao. Error:', errorMsg || 'No error message found')
+      console.error('[Tistory] Page title:', await page.title())
       return { isValid: false }
     }
 

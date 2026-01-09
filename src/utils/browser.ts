@@ -35,11 +35,37 @@ export async function createContext(cookies?: string): Promise<BrowserContext> {
   if (cookies) {
     try {
       const parsedCookies = JSON.parse(cookies)
-      if (Array.isArray(parsedCookies) && parsedCookies.length > 0) {
-        await context.addCookies(parsedCookies)
-      } else {
+      if (!Array.isArray(parsedCookies) || parsedCookies.length === 0) {
         throw new Error('Cookies must be a non-empty array')
       }
+      
+      const playwrightCookies = parsedCookies.map((cookie: Record<string, unknown>) => {
+        const expires = cookie.expirationDate ?? cookie.expires
+        const sameSiteMap: Record<string, 'Strict' | 'Lax' | 'None'> = {
+          'strict': 'Strict',
+          'lax': 'Lax', 
+          'none': 'None',
+          'unspecified': 'Lax',
+        }
+        const sameSite = sameSiteMap[String(cookie.sameSite || '').toLowerCase()] || 'Lax'
+        
+        return {
+          name: String(cookie.name || ''),
+          value: String(cookie.value || ''),
+          domain: String(cookie.domain || ''),
+          path: String(cookie.path || '/'),
+          expires: typeof expires === 'number' ? expires : -1,
+          httpOnly: Boolean(cookie.httpOnly),
+          secure: Boolean(cookie.secure),
+          sameSite,
+        }
+      }).filter((c: { name: string; domain: string }) => c.name && c.domain)
+      
+      if (playwrightCookies.length === 0) {
+        throw new Error('No valid cookies with domain found')
+      }
+      
+      await context.addCookies(playwrightCookies)
     } catch (e) {
       console.error('Failed to parse cookies:', e)
       console.error('Cookie data preview:', cookies.substring(0, 100))

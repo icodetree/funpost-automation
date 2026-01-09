@@ -26,24 +26,89 @@ export async function postToTistory(
 
   try {
     const writeUrl = `https://${options.blogId}.tistory.com/manage/newpost`
-    await page.goto(writeUrl, { waitUntil: 'networkidle' })
+    console.log('[Tistory Post] Navigating to:', writeUrl)
+    
+    await page.goto(writeUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
+    
+    const currentUrl = page.url()
+    console.log('[Tistory Post] Current URL after navigation:', currentUrl)
+    
+    if (currentUrl.includes('/login') || currentUrl.includes('accounts.kakao.com')) {
+      throw new Error('Session expired. Please re-login to Tistory.')
+    }
 
-    const isEditor = await page.locator('#editor, .editor-container, #tinymce').count() > 0
-    if (!isEditor) {
+    await page.waitForTimeout(3000)
+
+    const pageContent = await page.content()
+    console.log('[Tistory Post] Page title:', await page.title())
+    console.log('[Tistory Post] Has editor elements:', pageContent.includes('editor'))
+
+    const editorSelectors = [
+      '#editor',
+      '.editor-container', 
+      '#tinymce',
+      '.CodeMirror',
+      '#editorContent',
+      '.tistory-editor',
+      'textarea#content',
+      '[class*="editor"]',
+    ]
+    
+    let editorFound = false
+    for (const selector of editorSelectors) {
+      const count = await page.locator(selector).count()
+      if (count > 0) {
+        console.log('[Tistory Post] Found editor with selector:', selector)
+        editorFound = true
+        break
+      }
+    }
+
+    if (!editorFound) {
+      console.error('[Tistory Post] No editor found. Page HTML (first 2000 chars):', pageContent.substring(0, 2000))
       throw new Error('Failed to access editor. Session may have expired.')
     }
 
-    const titleInput = page.locator('input[name="title"], #title, .title-input')
-    await titleInput.fill(options.title)
+    const titleSelectors = [
+      'input[name="title"]',
+      '#title',
+      '.title-input',
+      'input.title',
+      '#post-title',
+    ]
+    
+    for (const selector of titleSelectors) {
+      const titleInput = page.locator(selector).first()
+      if (await titleInput.count() > 0) {
+        await titleInput.fill(options.title)
+        console.log('[Tistory Post] Title filled with selector:', selector)
+        break
+      }
+    }
 
-    const contentFrame = page.frameLocator('iframe.editor-content, #editor-content')
+    const contentFrame = page.frameLocator('iframe.editor-content, #editor-content, iframe')
     const editorBody = contentFrame.locator('body')
     
     if (await editorBody.count() > 0) {
       await editorBody.fill(options.content)
+      console.log('[Tistory Post] Content filled via iframe')
     } else {
-      const directEditor = page.locator('.editor-content, #content, [contenteditable="true"]')
-      await directEditor.fill(options.content)
+      const directEditorSelectors = [
+        '.editor-content',
+        '#content',
+        '[contenteditable="true"]',
+        'textarea#content',
+        '.CodeMirror textarea',
+      ]
+      
+      for (const selector of directEditorSelectors) {
+        const editor = page.locator(selector).first()
+        if (await editor.count() > 0) {
+          await editor.fill(options.content)
+          console.log('[Tistory Post] Content filled with selector:', selector)
+          break
+        }
+      }
     }
 
     if (options.category) {
@@ -58,18 +123,35 @@ export async function postToTistory(
       await setVisibility(page, options.visibility)
     }
 
-    await page.click('button.btn_publish, #publish-btn, button:has-text("발행")')
+    const publishSelectors = [
+      'button.btn_publish',
+      '#publish-btn',
+      'button:has-text("발행")',
+      'button:has-text("저장")',
+      '.btn_save',
+    ]
+    
+    for (const selector of publishSelectors) {
+      const btn = page.locator(selector).first()
+      if (await btn.count() > 0) {
+        await btn.click()
+        console.log('[Tistory Post] Clicked publish button with selector:', selector)
+        break
+      }
+    }
 
-    await page.waitForURL('**/manage/posts**', { timeout: 30000 })
+    await page.waitForTimeout(5000)
 
     await saveCookies(userId, 'tistory', context)
 
-    const currentUrl = page.url()
-    const postIdMatch = currentUrl.match(/\/(\d+)/)
+    const finalUrl = page.url()
+    console.log('[Tistory Post] Final URL:', finalUrl)
+    
+    const postIdMatch = finalUrl.match(/\/(\d+)/)
     const postId = postIdMatch?.[1]
 
     return {
-      postUrl: postId ? `https://${options.blogId}.tistory.com/${postId}` : undefined,
+      postUrl: postId ? `https://${options.blogId}.tistory.com/${postId}` : finalUrl,
       postId,
     }
   } finally {
@@ -82,7 +164,7 @@ async function selectCategory(page: import('playwright').Page, category: string)
     await page.click('.category-select, #category, button:has-text("카테고리")')
     await page.click(`text=${category}`)
   } catch {
-    console.warn('Failed to select category:', category)
+    console.warn('[Tistory Post] Failed to select category:', category)
   }
 }
 
@@ -94,7 +176,7 @@ async function addTags(page: import('playwright').Page, tags: string[]): Promise
       await page.keyboard.press('Enter')
     }
   } catch {
-    console.warn('Failed to add tags')
+    console.warn('[Tistory Post] Failed to add tags')
   }
 }
 
@@ -107,7 +189,7 @@ async function setVisibility(page: import('playwright').Page, visibility: 'priva
       await page.click('text=보호')
     }
   } catch {
-    console.warn('Failed to set visibility:', visibility)
+    console.warn('[Tistory Post] Failed to set visibility:', visibility)
   }
 }
 

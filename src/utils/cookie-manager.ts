@@ -81,11 +81,35 @@ export async function hasValidSession(
   return cookies !== null
 }
 
+function validateCookieFormat(cookiesJson: string): { valid: boolean; error?: string } {
+  try {
+    const parsed = JSON.parse(cookiesJson)
+    if (!Array.isArray(parsed)) {
+      return { valid: false, error: 'Cookies must be an array' }
+    }
+    if (parsed.length === 0) {
+      return { valid: false, error: 'Cookies array is empty' }
+    }
+    const firstCookie = parsed[0]
+    if (!firstCookie.name || !firstCookie.value) {
+      return { valid: false, error: 'Invalid cookie format. Each cookie must have "name" and "value" properties' }
+    }
+    return { valid: true }
+  } catch {
+    return { valid: false, error: 'Invalid JSON format' }
+  }
+}
+
 export async function saveManualCookies(
   userId: string,
   platform: PlatformType,
   cookiesJson: string
 ): Promise<void> {
+  const validation = validateCookieFormat(cookiesJson)
+  if (!validation.valid) {
+    throw new Error(validation.error || 'Invalid cookie format')
+  }
+
   const supabase = getSupabase()
 
   const expiresAt = new Date()
